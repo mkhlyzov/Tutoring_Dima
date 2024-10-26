@@ -1,14 +1,22 @@
 // package PLC.Sandbox.example_threading;
 
+import java.util.concurrent.Semaphore;
+
 public class FieldWork {
     public int processed_area = 0;
+    static Semaphore semaphore = new Semaphore(1);
 
     FieldWork() {
         processed_area = 0;
     }
 
     public void work_the_field_once() {
+        try {semaphore.acquire();}
+        catch (InterruptedException e) {e.printStackTrace();}
+
         processed_area++;
+        // processed_area = processed_area + 1;
+        semaphore.release();
     }
 
     public void work_for_a_farmer() {
@@ -39,6 +47,6 @@ public class FieldWork {
                 e.printStackTrace();
             }
         }
-        System.out.println(fieldWork.processed_area);
+        System.out.println(fieldWork.processed_area); // should be 10_000_000
     }
 }
