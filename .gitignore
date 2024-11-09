@@ -57,3 +57,34 @@ pip-delete-this-directory.txt
 
 # Ignore JetBrains IDE files (if using PyCharm or CLion)
 .idea/
+
+# === Rust specific ignores ===
+
+# Rust target directory (contains compiled artifacts)
+target/
+
+# Build artifacts and intermediate files
+**/*.rs.bk
+**/*.rs.old
+
+# Cargo-specific files
+**/Cargo.lock  # Can be ignored for libraries, but keep for applications
+**/Cargo.toml.orig  # Backup files for Cargo.toml
+
+# Rustdoc output
+**/doc/
+
+# Rust tests and benchmarks
+**/*.profraw
+
+# Ignore Rust/Cargo temporary files
+**/.cargo-lock   # Alternative lock file
+**/.rustup
+**/.cargo/
+**/.rustfmt.toml # Custom rustfmt configuration if temporary
+
+# Ignore backup and temporary files
+*.tmp
+*.swp
+*.swo
+*.bak
