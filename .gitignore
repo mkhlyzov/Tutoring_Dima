@@ -70,6 +70,7 @@ target/
 # Cargo-specific files
 **/Cargo.lock  # Can be ignored for libraries, but keep for applications
 **/Cargo.toml.orig  # Backup files for Cargo.toml
+Cargo.lock
 
 # Rustdoc output
 **/doc/
