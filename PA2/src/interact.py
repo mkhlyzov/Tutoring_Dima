@@ -1,14 +1,14 @@
-from wumpus import Wumpus
-from wumpus import Actions, Percepts, Orientation
-from tqdm import tqdm
 import numpy as np
-from aufgabe2 import Agent
+from aufgabe2_mike import Agent
+# from agents import AgentV2 as Agent
+from tqdm import tqdm
+from wumpus import Actions, Orientation, Percepts, Wumpus
 
 size = (4,4)
 n_repeat = 1000
 
 if __name__ == "__main__":   
-    env = Wumpus(seed=2025, size=size)
+    env = Wumpus(seed=2025, size=size, p_pit=0.20)
 
     cum_rewards = np.zeros(n_repeat)
     agent = Agent(size=size)

@@ -128,10 +128,19 @@ class Agent:
     has_gold: bool
     wumpus_alive: bool
 
-    def __init__(self, size=(4,4)):
+    pos_exit: tuple
+    t_max: int
+    t: int
+    p_pit: float
+
+    def __init__(
+        self, size=(4,4),
+        p_pit=0.2, t_max=50
+    ):
         self.size = size
         self.new_episode()
-        obs_example = self._get_observation()
+        self.p_pit = p_pit
+        self.t_max = t_max
         self.actions = [
             self._act_forward,
             self._act_left, 
@@ -140,13 +149,14 @@ class Agent:
             self._act_shoot,
             self._act_climb
         ]
-        self.brains = NeuralNetwork(
+        obs_example = self._get_observation()
+        self.net = NeuralNetwork(
             input_dim=obs_example.shape[0],
             output_dim=len(self.actions),
             layers=[]
         )
         if len(AGENT_WEIGHTS) > 0:
-            self.brains.from_string(AGENT_WEIGHTS)
+            self.net = NeuralNetwork.from_string(AGENT_WEIGHTS)
 
     def new_episode(self):
         self.map = -np.ones((*self.size, NUM_PERCEPTIONS), dtype=int)
@@ -156,25 +166,49 @@ class Agent:
         self.has_gold = False
         self.wumpus_alive = True
 
+        self.pos_exit = self.pos_agent
+        self.t = 0
+
     def get_action(self, percept, reward) -> Actions:
         self._update_game_state(percept)
         obs = self._get_observation()
-        action_probas = self.brains.farward(obs) # np.array(6)
-        action = np.argmax(action_probas)
+        action_probas = self.net.forward(obs) # np.array(6)
+        a = np.argmax(action_probas)
+        # a = np.random.choice(len(self.actions), p=action_probas)
+        action = self.actions[a]()
 
         return action
 
     def _get_observation(self):
-        s1 = [
-            *self.pos_agent, # change encoding
-            self.orientation_agent, # change encoding
+        orientation = np.zeros(4)
+        orientation[self.orientation_agent] = 1
+        s1 = np.array([
+            # *self.pos_agent,
+            *orientation,
             self.has_arrow,
             self.has_gold,
-            self.wumpus_alive
-        ]
-        s2 = self.map.flatten()
-        obs = np.hstack([s1, s2])
-        return obs
+            self.wumpus_alive,
+            self.map[self.pos_agent][Percepts.GLITTER] == 1,
+            np.log10(self.t_max - self.t),
+            self.p_pit,
+        ], dtype=np.float32)
+
+        # def to_decimal(x):
+        #     if x[0] >= 0:
+        #         return int(''.join(map(str, x)), 2) / (2**PERCEPT_DIM - 1)
+        #     else:
+        #         return -1
+        # decimal_matrix = np.apply_along_axis(to_decimal, axis=2, arr=self.map)
+        # s2 = decimal_matrix.flatten()
+        s2 = self.map[:, :, :2].flatten()
+
+        s3 = np.zeros(self.size)
+        s3[self.pos_agent] = 1
+        s3[self.pos_exit] = -1
+        s3 = s3.flatten()
+
+        s = np.concatenate([s1, s2, s3])
+        return s
     
     def _update_game_state(self, percept):
         self.map[self.pos_agent] = percept
@@ -195,42 +229,49 @@ class Agent:
         y = np.clip(self.pos_agent[1], 0, self.size[1] - 1)
         self.pos_agent = (x, y)
 
+        self.t += 1
+
         return Actions.FORWARD
     
     def _act_left(self) -> Actions:
         self.orientation_agent = (self.orientation_agent - 1) % 4
+        self.t += 1
         return Actions.LEFT
     
     def _act_right(self) -> Actions:
         self.orientation_agent = (self.orientation_agent + 1) % 4
+        self.t += 1
         return Actions.RIGHT
     
     def _act_grab(self) -> Actions:
         if self.map[self.pos_agent][Percepts.GLITTER] == 1:
             self.has_gold = True
+        self.t += 1
         return Actions.GRAB
     
     def _act_shoot(self) -> Actions:
         self.has_arrow = False
+        self.t += 1
         return Actions.SHOOT
 
     def _act_climb(self) -> Actions:
+        self.t += 1
         return Actions.CLIMB
 
 
 import gymnasium
+import wumpus_mike
 
 
-class WumpusEnv(Wumpus, gymnasium.Env):
+class WumpusEnv(wumpus_mike.Wumpus, gymnasium.Env):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.agent = Agent(
-            # size=kwargs['size']
+            size=self.size, t_max=self.Tmax, p_pit=self.p_pit
         )
         obs_example = self.agent._get_observation()
         self.observation_space = gymnasium.spaces.Box(
-            low=-np.inf,
-            high=np.inf,
+            low=-np.inf, high=np.inf,
             shape=obs_example.shape,
             dtype=obs_example.dtype
         )
@@ -240,13 +281,24 @@ class WumpusEnv(Wumpus, gymnasium.Env):
     
     def step(self, action: Actions):
         self.agent.actions[action]()
-        obs, reward, term, info = super().step(action)
+        perc, reward, term, _ = super().step(action)
+        self.agent._update_game_state(perc)
         obs = self.agent._get_observation()
         return obs, reward, term, False, {}
     
     def reset(self, *args, **kwargs):
         perc = super().reset()
         self.agent.new_episode()
+
+        # randomizations for curriculum
+        self.agent.t_max = self.Tmax
+        self.agent.p_pit = self.p_pit
+        self.agent.wumpus_alive = self.wumpus_alive
+        self.agent.has_arrow = self.has_arrow
+        self.agent.pos_agent = self.pos_agent
+        self.agent.pos_exit = self.pos_exit
+        self.agent.orientation_agent = self.orientation_agent
+
         self.agent._update_game_state(perc)
         obs = self.agent._get_observation()
         return obs, {}
