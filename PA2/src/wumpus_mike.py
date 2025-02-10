@@ -171,6 +171,9 @@ class Wumpus:
 
         self.obs = obs
         self.t = 0
+        
+        self.visited = set()
+        self.visited.add(self.pos_agent)
 
         return self.obs
 
@@ -301,9 +304,10 @@ class Wumpus:
         scream = False
 
         r_gold_grab = 15
-        r_arrow_shoot = -10
+        r_arrow_shoot = -4
         r_escape_with_gold = 100
         r_death = -80
+        r_new_cell_explored = 2
 
         reward = -0.2 # any actions costs
         if self.has_gold and self.pos_agent == self.pos_exit:
@@ -399,6 +403,11 @@ class Wumpus:
             obs[Percepts.SCREAM] = True
 
         self.obs = obs
+
+        num_visited = len(self.visited)
+        self.visited.add(self.pos_agent)
+        if len(self.visited) > num_visited and not self.has_gold: 
+            reward += r_new_cell_explored
 
         self.t += 1
         if not terminated:
