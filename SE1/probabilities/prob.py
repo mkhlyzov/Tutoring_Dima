@@ -23,18 +23,21 @@ import random
 
 counts = dict()
 
-for i in range(1000):
-	a = random.randint(1, 6) # 1, 2, 3, 4, 5, 6
-	counts[a] = counts.get(a, 0) + 1
+for i in range(10_000_000):
+    a = random.randint(1, 6)  # 1, 2, 3, 4, 5, 6
+    b = random.randint(1, 6)  # 1, 2, 3, 4, 5, 6
+    x = a + b
+    counts[x] = counts.get(x, 0) + 1
 
 # print(f"{counts=}")
 events_total = sum([v for k, v in counts.items()])
 print(f"{events_total=}")
 
 sum_of_probas = 0.
-for k, v in counts.items():
-	proba = v / events_total
-	print(f"{k} : {v}		{proba=}")
-	sum_of_probas += proba
+for k in sorted(counts.keys()):
+    v = counts[k]
+    proba = v / events_total
+    print(f"{k} : {v}		{proba=}")
+    sum_of_probas += proba
 
 print(f"{sum_of_probas=}")
